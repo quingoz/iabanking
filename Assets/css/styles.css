@@ -1,0 +1,24 @@
+.iq-header-img::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgb(0 0 0 / 14%);
+}
+
+.gradient {
+    background: none !important;
+}
+
+.fondo-error{
+    background-image: url(http://localhost/service-supermarket/Assets/images/header-img.jpg);
+    background-repeat: no-repeat;
+    background-size: cover;
+}
+
+.loadingNew {
+    background-color: #1518246e !important;
+    top: 0 !important;
+}
