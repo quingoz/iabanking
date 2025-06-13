@@ -60,7 +60,7 @@ class Transaccion extends Controllers{
 	public function setTransaction()
 	{
 		if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-			return $this->jsonResponse(false, 'Método no permitido');
+			$arrResponse = array('status' => false, 'msg' => 'Método no permitido.' );
 		}
 
 		$anio = $_POST['anio'] ?? null;
@@ -80,14 +80,18 @@ class Transaccion extends Controllers{
 			}
 			
 			$fileExt = strtolower(pathinfo($archivo['name'], PATHINFO_EXTENSION));
-			
-			if (!in_array($fileExt, ['pdf', 'xls', 'xlsx'])) {
-				return $this->jsonResponse(false, 'Formato de archivo no soportado.');
+
+			if (!in_array($fileExt, ['pdf', 'xls', 'xlsx', 'txt'])) {
+				$arrResponse = array('status' => true, 'msg' => 'Formato de archivo no soportado.' );
+				echo json_encode($arrResponse,JSON_UNESCAPED_UNICODE);
+				die();
 			}
 
-			if (!move_uploaded_file($tmpName, $uploadPath)) {
-				return $this->jsonResponse(false, 'No se pudo guardar el archivo en el servidor.');
-			}
+			/*if (!move_uploaded_file($tmpName, $uploadPath)) {
+				$arrResponse = array('status' => true, 'msg' => 'No se pudo guardar el archivo en el servidor.' );
+				echo json_encode($arrResponse,JSON_UNESCAPED_UNICODE);
+				die();
+			}*/
 			
 			if ($fileExt === 'pdf') {
 				
@@ -140,12 +144,12 @@ class Transaccion extends Controllers{
 										switch ($bancoPrefijo) {
 											case 'SFT': $movimientosFormat = $this->bancoSofitasa($data); break;
 											case 'BCT': $movimientosFormat = $this->bancoBicentenario($data); break;
-											case 'BNC': $movimientosFormat = $this->bancoBnc($data); break;
+											//case 'BNC': $movimientosFormat = $this->bancoBnc($data); break;
 											case 'BDT': $movimientosFormat = $this->bancoTesoro($data); break;
 											case 'BCM': $movimientosFormat = $this->bancoBancamiga($data); break;
 											case 'BCO': $movimientosFormat = $this->bancoBanesco($anio, $mes, $data); break;
 											case 'VNZ': $movimientosFormat = $this->bancoVenezuela($data); break;
-											case 'PRV': $movimientosFormat = $this->bancoProvincial($data); break;
+											//case 'PRV': $movimientosFormat = $this->bancoProvincial($data); break;
 											case 'MRC': $movimientosFormat = $this->bancoMercantil($anio, $data); break;
 										}
 
@@ -154,13 +158,17 @@ class Transaccion extends Controllers{
 										// Eliminar archivo temporal
 										unlink($uploadPath);
 
-										$arrResponse = array('status' => true, 'data' => $inserted );
+										$arrResponse = array('status' => true, 'msg' => $inserted );
 										echo json_encode($arrResponse,JSON_UNESCAPED_UNICODE);
 										die();
 									} elseif ($response['status'] === "working") {
 										sleep(3);
 									} elseif ($response['status'] === "failed") {
-										return $this->jsonResponse(false, 'Error a leer el archivo bancario.');
+										echo json_encode([
+											'success' => false,
+											'msg' => 'Error a leer el archivo bancario.'
+										]);
+										die();
 									} else {
 										break;
 									}
@@ -182,20 +190,75 @@ class Transaccion extends Controllers{
 						unlink($uploadPath);
 					}
 				} else {
-					return $this->jsonResponse(false, 'No se pudo guardar el archivo en el servidor.');
+					echo json_encode([
+						'success' => false,
+						'msg' => 'No se pudo guardar el archivo en el servidor.'
+					]);
+					die();
 				}
 				
-			} else {
-				// Procesar Excel
-				$data = $this->procesarExcel($uploadPath, $anio, $mes, $banco);
-				
-				$arrResponse = array('status' => true, 'data' => $data );
-				echo json_encode($arrResponse,JSON_UNESCAPED_UNICODE);
-				die();
-				
+			} else if($fileExt === 'txt'){
+
+				$bancoParts = explode('.', $banco);
+				$bancoId = $bancoParts[0] ?? null;
+				$bancoPrefijo = $bancoParts[1] ?? null;
+
+				$movimientosFormat = null;
+				switch ($bancoPrefijo) {
+					//case 'SFT': $movimientosFormat = $this->procesarExcelSofitasa($uploadPath); break;
+					//case 'BCM': $movimientosFormat = $this->procesarExcelBancamiga($uploadPath); break;
+					//case 'VNZ': $movimientosFormat = $this->procesarExcelVenezuela($uploadPath); break;
+					case 'MRC': $movimientosFormat = $this->procesarTxtMercantil($uploadPath); break;
+					//case 'BCT': $movimientosFormat = $this->bancoBicentenario($data); break;
+					//case 'BNC': $movimientosFormat = $this->bancoBnc($data); break;
+					//case 'BDT': $movimientosFormat = $this->bancoTesoro($data); break;
+					//case 'BCO': $movimientosFormat = $this->bancoBanesco($anio, $mes, $data); break;
+					//case 'PRV': $movimientosFormat = $this->bancoProvincial($data); break;
+					
+				}
+
+					$inserted = $this->model->insertTransaction($anio, $mes, $bancoId, $movimientosFormat);
+					// Eliminar archivo temporal
+					unlink($uploadPath);
+
+					$arrResponse = array('status' => true, 'msg' => $inserted );
+					echo json_encode($arrResponse,JSON_UNESCAPED_UNICODE);
+					die();
+
+			}else {
+
+				$bancoParts = explode('.', $banco);
+				$bancoId = $bancoParts[0] ?? null;
+				$bancoPrefijo = $bancoParts[1] ?? null;
+
+				$movimientosFormat = null;
+				switch ($bancoPrefijo) {
+					case 'SFT': $movimientosFormat = $this->procesarExcelSofitasa($uploadPath); break;
+					case 'BCM': $movimientosFormat = $this->procesarExcelBancamiga($uploadPath); break;
+					case 'VNZ': $movimientosFormat = $this->procesarExcelVenezuela($uploadPath); break;
+					case 'MRC': $movimientosFormat = $this->procesarExcelMercantil($uploadPath); break;
+					//case 'BCT': $movimientosFormat = $this->bancoBicentenario($data); break;
+					//case 'BNC': $movimientosFormat = $this->bancoBnc($data); break;
+					//case 'BDT': $movimientosFormat = $this->bancoTesoro($data); break;
+					//case 'BCO': $movimientosFormat = $this->bancoBanesco($anio, $mes, $data); break;
+					//case 'PRV': $movimientosFormat = $this->bancoProvincial($data); break;
+					
+				}
+
+					$inserted = $this->model->insertTransaction($anio, $mes, $bancoId, $movimientosFormat);
+					// Eliminar archivo temporal
+					unlink($uploadPath);
+
+					$arrResponse = array('status' => true, 'msg' => $inserted );
+					echo json_encode($arrResponse,JSON_UNESCAPED_UNICODE);
+					die();
 			}
 		} else {
-			return $this->jsonResponse(false, 'Archivo inválido o no enviado.');
+			echo json_encode([
+				'success' => false,
+				'msg' => 'Archivo inválido o no enviado.'
+			]);
+			die();
 		}
 	}
 	
@@ -456,7 +519,6 @@ class Transaccion extends Controllers{
 	
 	private function bancoMercantil($anio, $data)
 	{	
-		
 		if (array_key_exists('header', $data)) {
 			$result = $this->movMercantil1($data);
 			return $result;
@@ -509,7 +571,7 @@ class Transaccion extends Controllers{
 			
 			// Convertir fecha de DD/MM/YYYY a YYYY-MM-DD
 			$fecha = DateTime::createFromFormat('d/m/Y', $item['date'])->format('Y-m-d');
-			
+
 			$amount = $this->parseEuropeanNumberNew($item['amount']);
 			$monto = $amount;
 			
@@ -591,11 +653,37 @@ class Transaccion extends Controllers{
 		return $movimientos_transformados;
 	}
 	
-	private function parseEuropeanNumber($number) {
+	/*private function parseEuropeanNumber($number) {
+
 		// Elimina el separador de miles
 		$number = str_replace('.', '', $number);
 		// Reemplaza coma decimal por punto
 		$number = str_replace(',', '.', $number);
+		return floatval($number);
+	}*/
+
+	private function parseEuropeanNumber($number) {
+		$number = trim((string) $number);
+
+		// Si contiene ambos símbolos: coma y punto
+		if (strpos($number, ',') !== false && strpos($number, '.') !== false) {
+			// Verificamos cuál está más cerca del final (probable decimal)
+			if (strrpos($number, ',') > strrpos($number, '.')) {
+				// Formato europeo: 1.234,56
+				$number = str_replace('.', '', $number);  // quita miles
+				$number = str_replace(',', '.', $number); // cambia decimal
+			} else {
+				// Formato mal exportado como 4,810.53 → debemos quitar la coma
+				$number = str_replace(',', '', $number);  // quita miles
+				// el punto decimal queda
+			}
+		}
+		// Solo coma: formato europeo simple
+		elseif (strpos($number, ',') !== false) {
+			$number = str_replace(',', '.', $number);
+		}
+		// Solo punto: ya está bien
+
 		return floatval($number);
 	}
 
@@ -698,7 +786,7 @@ class Transaccion extends Controllers{
 		exit;
 	}
 	
-	private function procesarExcel($filePath, $anio, $mes, $banco)
+	private function procesarExcelVenezuela($filePath)
 	{
 		try {
 			$spreadsheet = IOFactory::load($filePath);
@@ -731,19 +819,389 @@ class Transaccion extends Controllers{
 				];
 			}
 
-			$bancoParts = explode('.', $banco);
-			$bancoId = $bancoParts[0] ?? null;
-			$bancoPrefijo = $bancoParts[1] ?? null;
-
-			$inserted = $this->model->insertTransaction($anio, $mes, $bancoId, $movimientos_transformados);
-
-			unlink($filePath);
-
-			return $inserted;
+			return $movimientos_transformados;
 
 		} catch (Exception $e) {
 			if (file_exists($filePath)) unlink($filePath);
-			return $this->jsonResponse(false, 'Error procesando el archivo Excel: ' . $e->getMessage());
+			echo json_encode([
+				'success' => false,
+				'msg' => 'Archivo Excel esta dañado y/o absoleto.'
+			]);
+			die();
+		}
+	}
+
+	private function procesarExcelSofitasa($filePath)
+	{	
+		try {
+			$spreadsheet = IOFactory::load($filePath);
+			$sheet = $spreadsheet->getActiveSheet();
+			$rows = $sheet->toArray();
+
+			$movimientos_transformados = [];
+			
+			// Asume que la primera fila son los encabezados
+			for ($i = 16; $i < count($rows); $i++) {
+				$fila = $rows[$i];
+				
+				if ($fila[1] == 'Totales') {
+					break; // Termina el ciclo si la fecha está vacía
+				}
+
+				$fecha = DateTime::createFromFormat('d/m/Y', $fila[1])->format('Y-m-d');
+
+				$debit = $this->parseEuropeanNumber($fila[13]);
+				$credit = $this->parseEuropeanNumber($fila[15]);
+
+				// Determinar el monto correcto
+				if ($credit == 0) {
+					$monto = $debit;
+				} else {
+					$monto = $credit;
+				}
+
+				// Ajusta los índices [0], [1], [2] según el orden de tus columnas
+				$movimientos_transformados[] = [
+					'fecha'      => $fecha,  // Ej: "2024-01-01"
+					'referencia' => $fila[12],  // Ej: "123456"
+					'monto'      => $monto,  // Ej: "100.00"
+				];
+			}
+
+			return $movimientos_transformados;
+
+		} catch (Exception $e) {
+			if (file_exists($filePath)) unlink($filePath);
+			echo json_encode([
+				'success' => false,
+				'msg' => 'Archivo Excel esta dañado y/o absoleto.'
+			]);
+			die();
+		}
+	}
+
+	private function procesarExcelMercantil($filePath)
+	{	
+		try {
+			$spreadsheet = IOFactory::load($filePath);
+			$sheet = $spreadsheet->getActiveSheet();
+			$rows = $sheet->toArray();
+
+			foreach ($rows as $fila) {
+				if (count($fila) > 4) {
+					$result = $this->processMercantilExcel1($rows);
+					return $result;
+				}else{
+					$result = $this->processMercantilExcel2($rows);
+					return $result;
+				}
+			}
+
+		} catch (Exception $e) {
+			if (file_exists($filePath)) unlink($filePath);
+			echo json_encode([
+				'success' => false,
+				'msg' => 'Archivo Excel esta dañado y/o absoleto.'
+			]);
+			die();
+		}
+	}
+
+	private function processMercantilExcel1($rows)
+	{	
+		$movimientos_transformados = [];
+			
+		// Asume que la primera fila son los encabezados
+		for ($i = 10; $i < count($rows); $i++) {
+			$fila = $rows[$i];
+			
+			if ($fila[3] == 'SALDO INICIAL') {
+				break; // Termina el ciclo si la fecha está vacía
+			}
+
+			$fecha = DateTime::createFromFormat('d/m/Y', $fila[1])->format('Y-m-d');
+
+			$amount = $this->parseEuropeanNumber($fila[4]);
+
+			$movimientos_transformados[] = [
+				'fecha'      => $fecha,  // Ej: "2024-01-01"
+				'referencia' => $fila[2],  // Ej: "123456"
+				'monto'      => $amount,  // Ej: "100.00"
+			];
+		}
+
+		return $movimientos_transformados;
+	}
+
+	private function processMercantilExcel2($rows)
+	{	
+		$movimientos_transformados = [];
+
+		// Asume que la primera fila son los encabezados
+		for ($i = 7; $i < count($rows); $i++) {
+			$fila = $rows[$i];
+			
+			if ($fila[2] == 'SALDO INICIAL') {
+				break; // Termina el ciclo si la fecha está vacía
+			}
+
+			$fecha = DateTime::createFromFormat('d/m/Y', $fila[0])->format('Y-m-d');
+
+			$amount = $this->parseEuropeanNumber($fila[3]);
+
+			$movimientos_transformados[] = [
+				'fecha'      => $fecha,  // Ej: "2024-01-01"
+				'referencia' => $fila[1],  // Ej: "123456"
+				'monto'      => $amount,  // Ej: "100.00"
+			];
+		}
+
+		return $movimientos_transformados;
+	}
+
+	private function procesarExcelBancamiga($filePath)
+	{	
+		
+		try {
+			$spreadsheet = IOFactory::load($filePath);
+			$sheet = $spreadsheet->getActiveSheet();
+			$rows = $sheet->toArray();
+
+			$movimientos_transformados = [];
+			
+			// Asume que la primera fila son los encabezados
+			for ($i = 6; $i < count($rows); $i++) {
+				$fila = $rows[$i];
+				if (empty($fila[1])) {
+					break; // Termina el ciclo si la fecha está vacía
+				}
+				
+				$fecha = DateTime::createFromFormat('m/d/Y', $fila[1])->format('Y-m-d');
+
+				$debit = $this->parseEuropeanNumber($fila[4]);
+				$credit = $this->parseEuropeanNumber($fila[5]);
+
+				// Determinar el monto correcto
+				if ($credit == 0) {
+					$monto = '-'.$debit;
+				} else {
+					$monto = $credit;
+				}
+
+				$referencia = ltrim($fila[2], "'");
+
+				// Ajusta los índices [0], [1], [2] según el orden de tus columnas
+				$movimientos_transformados[] = [
+					'fecha'      => $fecha,  // Ej: "2024-01-01"
+					'referencia' => $referencia,  // Ej: "123456"
+					'monto'      => $monto,  // Ej: "100.00"
+				];
+			}
+
+			return $movimientos_transformados;
+
+		} catch (Exception $e) {
+			if (file_exists($filePath)) unlink($filePath);
+			echo json_encode([
+				'success' => false,
+				'msg' => 'Archivo Excel esta dañado y/o absoleto.'
+			]);
+			die();
+		}
+	}
+
+	private function procesarTxtMercantil($filePath)
+	{	
+		try {
+			$handle = fopen($filePath, 'r');
+			$linea = fgets($handle);
+			fclose($handle);
+
+			$linea = trim($linea);
+
+			if (substr_count($linea, ',') > 3) {
+				// Tipo 1: CSV
+				$result = $this->procesarTxtMercantil1($filePath);
+				return $result;
+			} elseif (preg_match('/^(NC|ND|SF|SD)\s+\d{2}\/\d{2}\/\d{4}/', $linea)) {
+				// Tipo 2: comienza con NC, ND, etc.
+				$result = $this->procesarTxtMercantil2($filePath);
+				return $result;
+			} elseif (preg_match('/^0105\s+VES\s+\d{12}\s+\d{8}/', $linea)) {
+				// Tipo 3: comienza con 0105 VES ... fecha
+				$result = $this->procesarTxtMercantil3($filePath);
+				return $result;
+			} else {
+				echo json_encode([
+					'success' => false,
+					'msg' => 'Formato txt no reconocido.'
+				]);
+				die();
+			}
+		} catch (Exception $e) {
+			if (file_exists($filePath)) unlink($filePath);
+			echo json_encode([
+				'success' => false,
+				'msg' => 'El archivo TXT está dañado o su formato no es reconocido.'
+			]);
+			die();
+		}
+	}
+
+
+	private function procesarTxtMercantil1($filePath)
+	{
+		try {
+
+			if (($handle = fopen($filePath, "r")) !== false) {
+				while (($data = fgetcsv($handle, 1000, ',', '"')) !== false) {
+
+					if (in_array($data[5], ['SI', 'SF'])) {
+						continue; // Ignora este movimiento y pasa al siguiente
+					}
+
+					// Validamos que tenga al menos 10 columnas
+					if (count($data) >= 8) {
+						
+						$fecha = DateTime::createFromFormat('dmY', $data[3])->format('Y-m-d');
+						$amount = $this->parseEuropeanNumber($data[7]);
+
+						if($data[5] == 'NC'){
+							$monto = $amount;
+						}else{
+							$monto = '-'.$amount;
+						}
+
+						$movimientos_transformados[] = [
+							'fecha'      => $fecha,
+							'referencia' => $data[4],
+							'monto'      => $monto
+						];
+					}
+				}
+				fclose($handle);
+			}
+
+			return $movimientos_transformados;
+
+		} catch (Exception $e) {
+			if (file_exists($filePath)) unlink($filePath);
+			echo json_encode([
+				'success' => false,
+				'msg' => 'Archivo TXT esta dañado.'
+			]);
+			die();
+		}
+	}
+
+	private function procesarTxtMercantil2($filePath)
+	{
+		try {
+
+			$lineas = file($filePath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+
+			$movimientos_transformados = [];
+
+			foreach ($lineas as $linea) {
+				// Asegurarse de que tenga largo mínimo
+				if (strlen(trim($linea)) < 70) continue;
+
+				$type        = trim(substr($linea, 0, 5));
+
+				if ($type == 'SI' || $type == 'SF') {
+						continue; // Ignora este movimiento y pasa al siguiente
+				}
+
+				$fechaRaw    = trim(substr($linea, 5, 13));   // "12/06/2025"
+				$referencia  = trim(substr($linea, 18, 18));  // 15-18 caracteres según el ejemplo
+				$montoRaw    = trim(substr($linea, 84));      // desde el caracter 80 en adelante (ajustar si varía)
+				
+				$fecha = DateTime::createFromFormat('d/m/Y', $fechaRaw)->format('Y-m-d');
+
+				$amount = $this->parseEuropeanNumber($montoRaw);
+
+				$movimientos_transformados[] = [
+					'fecha'       => $fecha,
+					'referencia'  => $referencia,
+					'monto'       => $amount
+				];
+			}
+			
+			return $movimientos_transformados;
+
+		} catch (Exception $e) {
+			if (file_exists($filePath)) unlink($filePath);
+			echo json_encode([
+				'success' => false,
+				'msg' => 'Archivo TXT esta dañado'
+			]);
+			die();
+		}
+	}
+
+	private function procesarTxtMercantil3($filePath)
+	{
+		try {
+
+			$lineas = file($filePath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+			$movimientos_transformados = [];
+
+			foreach ($lineas as $linea) {
+				// Dividir en tokens por uno o más espacios
+				$tokens = preg_split('/\s+/', trim($linea));
+
+				// Verifica que haya al menos 10 campos
+				if (count($tokens) < 10) continue;
+
+				// Extraer los últimos 3 valores
+				$codigo   = array_pop($tokens);
+				$saldoRaw = array_pop($tokens);
+				$montoRaw = array_pop($tokens);
+
+				// Convertir montos a float
+				$amount = $this->parseEuropeanNumber($montoRaw);
+
+				$tiposPermitidos = ['ND', 'NC'];
+				$tipo = null;
+				foreach ($tokens as $i => $val) {
+					if (in_array($val, $tiposPermitidos)) {
+						$tipo = $val;
+						$posTipo = $i;
+						break;
+					}
+				}
+
+				if ($tipo === null) continue;
+
+
+				// Separar los campos conocidos
+				$fechaRaw   = $tokens[3] ?? '';
+				$referencia = $tokens[4] ?? '';
+				
+				// Formatear fecha
+				$fecha = DateTime::createFromFormat('dmY', $fechaRaw)->format('Y-m-d');
+
+				// Si es ND, monto negativo
+				if ($tipo === 'ND') {
+					$amount *= -1;
+				}
+
+				$movimientos_transformados[] = [
+					'fecha'       => $fecha,
+					'referencia'  => $referencia,
+					'monto'       => $amount,
+				];
+			}
+
+			return $movimientos_transformados;
+
+		} catch (Exception $e) {
+			if (file_exists($filePath)) unlink($filePath);
+			echo json_encode([
+				'success' => false,
+				'msg' => 'Archivo TXT esta dañado.'
+			]);
+			die();
 		}
 	}
 }

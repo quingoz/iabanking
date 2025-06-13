@@ -70,7 +70,6 @@
 			$sqlBanco = "SELECT * FROM banco WHERE id = $banco";
 			$selectBanco = $this->select($sqlBanco);
 			
-			
 			foreach ($movimientos as $key => $mov) {
 				
 				// Extraer año y mes desde la fecha del movimiento
