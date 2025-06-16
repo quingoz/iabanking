@@ -1,5 +1,5 @@
 <?php 
-include dirname(__DIR__) . '/vendor/autoload.php';
+	include dirname(__DIR__) . '/vendor/autoload.php';
 use PhpOffice\PhpSpreadsheet\IOFactory;
 
 class Transaccion extends Controllers{
@@ -87,21 +87,16 @@ class Transaccion extends Controllers{
 				die();
 			}
 
-			/*if (!move_uploaded_file($tmpName, $uploadPath)) {
-				$arrResponse = array('status' => true, 'msg' => 'No se pudo guardar el archivo en el servidor.' );
-				echo json_encode($arrResponse,JSON_UNESCAPED_UNICODE);
-				die();
-			}*/
-			
 			if ($fileExt === 'pdf') {
 				
 				if (move_uploaded_file($tmpName, $uploadPath)) {
 					// URL pública si necesitas que PDF.co lo acceda por internet
 					// Asegúrate de tener un alias de tu carpeta "uploads" accesible desde el navegador
 					$fileUrl = "https://iabanking.apps-adn.com/" . $fileName;
-
+	
 					// Aquí sigue tu lógica PDF.co:
-					$apiKey = "adnlean.com@gmail.com_SfBGojnr2FuvXSWOHxuu8MzeyudrwopxbuyaxhvbWpUSXreGnto0giAxCbuucJGV";
+					//$apiKey = "adnlean.com@gmail.com_SfBGojnr2FuvXSWOHxuu8MzeyudrwopxbuyaxhvbWpUSXreGnto0giAxCbuucJGV";
+					$apiKey = "quintanaanthony7@gmail.com_iY7N3p4sBXK9G4t0Y0Pwjv8UW4w0PQvZ8E87Pd0d8mD6lAuTru3iCS6hQmCtMFLp";
 					$url = "https://api.pdf.co/v1/ai-invoice-parser";
 					$params = ["url" => $fileUrl];
 					$curl = curl_init();
@@ -127,13 +122,13 @@ class Transaccion extends Controllers{
 
 								do {
 									$response = $this->CheckJobStatus($jobId, $apiKey);
-
+									
 									if ($response['status'] === "success") {
-
+										
 										$resultUrl = $response['url'];
 										$parsedJson = file_get_contents($resultUrl);
 										$data = json_decode($parsedJson, true);
-
+	
 										// Separar banco ID y prefijo
 										$bancoParts = explode('.', $banco);
 										$bancoId = $bancoParts[0] ?? null;
@@ -144,13 +139,13 @@ class Transaccion extends Controllers{
 										switch ($bancoPrefijo) {
 											case 'SFT': $movimientosFormat = $this->bancoSofitasa($data); break;
 											case 'BCT': $movimientosFormat = $this->bancoBicentenario($data); break;
-											//case 'BNC': $movimientosFormat = $this->bancoBnc($data); break;
 											case 'BDT': $movimientosFormat = $this->bancoTesoro($data); break;
 											case 'BCM': $movimientosFormat = $this->bancoBancamiga($data); break;
 											case 'BCO': $movimientosFormat = $this->bancoBanesco($anio, $mes, $data); break;
 											case 'VNZ': $movimientosFormat = $this->bancoVenezuela($data); break;
-											//case 'PRV': $movimientosFormat = $this->bancoProvincial($data); break;
 											case 'MRC': $movimientosFormat = $this->bancoMercantil($anio, $data); break;
+											case 'BNC': $movimientosFormat = $this->bancoBnc($data); break;
+											case 'PRV': $movimientosFormat = $this->bancoProvincial($data); break;
 										}
 
 										$inserted = $this->model->insertTransaction($anio, $mes, $bancoId, $movimientosFormat);
@@ -198,17 +193,23 @@ class Transaccion extends Controllers{
 				}
 				
 			} else if($fileExt === 'txt'){
-
+				
+				if (!move_uploaded_file($tmpName, $uploadPath)) {
+					$arrResponse = array('status' => true, 'msg' => 'No se pudo guardar el archivo en el servidor.' );
+					echo json_encode($arrResponse,JSON_UNESCAPED_UNICODE);
+					die();
+				}
+				
 				$bancoParts = explode('.', $banco);
 				$bancoId = $bancoParts[0] ?? null;
 				$bancoPrefijo = $bancoParts[1] ?? null;
-
+								
 				$movimientosFormat = null;
 				switch ($bancoPrefijo) {
-					//case 'SFT': $movimientosFormat = $this->procesarExcelSofitasa($uploadPath); break;
+					case 'MRC': $movimientosFormat = $this->procesarTxtMercantil($uploadPath); break;
+					//case 'SFT': $movimientosFormat = $this->procesarTxtSofitasa($uploadPath); break;
 					//case 'BCM': $movimientosFormat = $this->procesarExcelBancamiga($uploadPath); break;
 					//case 'VNZ': $movimientosFormat = $this->procesarExcelVenezuela($uploadPath); break;
-					case 'MRC': $movimientosFormat = $this->procesarTxtMercantil($uploadPath); break;
 					//case 'BCT': $movimientosFormat = $this->bancoBicentenario($data); break;
 					//case 'BNC': $movimientosFormat = $this->bancoBnc($data); break;
 					//case 'BDT': $movimientosFormat = $this->bancoTesoro($data); break;
@@ -226,7 +227,13 @@ class Transaccion extends Controllers{
 					die();
 
 			}else {
-
+				
+				if (!move_uploaded_file($tmpName, $uploadPath)) {
+					$arrResponse = array('status' => true, 'msg' => 'No se pudo guardar el archivo en el servidor.' );
+					echo json_encode($arrResponse,JSON_UNESCAPED_UNICODE);
+					die();
+				}
+				
 				$bancoParts = explode('.', $banco);
 				$bancoId = $bancoParts[0] ?? null;
 				$bancoPrefijo = $bancoParts[1] ?? null;
@@ -457,6 +464,12 @@ class Transaccion extends Controllers{
 	private function bancoBanesco($anio, $mes, $data)
 	{	
 		
+		echo json_encode([
+			'status' => false,
+			'msg' => 'Formato(PDF) - Banco Banesco, desabilitado temporalmente.'
+		]);
+		die();
+
 		// Puedes hacer un print_r si estás debuggeando:
 		$movimientos = $data['detalle_de_movimientos'];
 		$movimientos_transformados = [];
@@ -494,11 +507,14 @@ class Transaccion extends Controllers{
 		
 		foreach ($movimientos as $key => $item) {
 			
+			if($item['Descripción'] == 'SALDO INICIAL'){
+				continue;
+			}
 			// Convertir fecha de DD/MM/YYYY a YYYY-MM-DD
-			$fecha = DateTime::createFromFormat('d/m/Y', $item['date'])->format('Y-m-d');
+			$fecha = DateTime::createFromFormat('d/m/Y', $item['Fecha'])->format('Y-m-d');
 			// Limpiar y convertir a número float para poder comparar correctamente
-			$debit = $this->parseEuropeanNumber($item['debit']);
-			$credit = $this->parseEuropeanNumber($item['credit']);
+			$debit = $this->parseEuropeanNumber($item['Débito']);
+			$credit = $this->parseEuropeanNumber($item['Crédito']);
 			
 			// Determinar el monto correcto
 			if ($credit == 0.00) {
@@ -509,7 +525,7 @@ class Transaccion extends Controllers{
 			
 			$movimientos_transformados[] = [
 				'fecha'      => $fecha,
-				'referencia' => $item['reference'],
+				'referencia' => $item['Referencia'],
 				'monto'      => $monto, // O 'credit' si prefieres según la lógica
 			];
 		}
@@ -520,6 +536,13 @@ class Transaccion extends Controllers{
 	private function bancoMercantil($anio, $data)
 	{	
 		if (array_key_exists('header', $data)) {
+			
+			echo json_encode([
+				'status' => false,
+				'msg' => 'Formato(PDF) - Banco Mercantil, desabilitado temporalmente.'
+			]);
+			die();
+			
 			$result = $this->movMercantil1($data);
 			return $result;
 		} else if(array_key_exists('account_details', $data)){
@@ -557,7 +580,6 @@ class Transaccion extends Controllers{
 				'monto'      => $monto, // O 'credit' si prefieres según la lógica
 			];
 		}
-		
 		return $movimientos_transformados;
 	}
 	
@@ -572,7 +594,7 @@ class Transaccion extends Controllers{
 			// Convertir fecha de DD/MM/YYYY a YYYY-MM-DD
 			$fecha = DateTime::createFromFormat('d/m/Y', $item['date'])->format('Y-m-d');
 
-			$amount = $this->parseEuropeanNumberNew($item['amount']);
+			$amount = $this->parseEuropeanNumber($item['amount']);
 			$monto = $amount;
 			
 			$movimientos_transformados[] = [
@@ -653,6 +675,65 @@ class Transaccion extends Controllers{
 		return $movimientos_transformados;
 	}
 	
+	private function bancoBnc($data)
+	{
+		// Puedes hacer un print_r si estás debuggeando:
+		$movimientos = $data['transactions'];
+		$movimientos_transformados = [];
+
+		foreach ($movimientos as $key => $item) {
+			// Convertir fecha de DD/MM/YYYY a YYYY-MM-DD
+			$fecha = DateTime::createFromFormat('d/m/Y', $item['date'])->format('Y-m-d');
+			// Limpiar y convertir a número float para poder comparar correctamente
+			$debit = $this->parseEuropeanNumber($item['debit']);
+			$credit = $this->parseEuropeanNumber($item['credit']);
+
+			// Determinar el monto correcto
+			if ($credit == 0.00) {
+				$monto = $debit;
+			} else {
+				$monto = $credit;
+			}
+
+			$movimientos_transformados[] = [
+				'fecha'      => $fecha,
+				'referencia' => $item['reference'],
+				'monto'      => $monto, // O 'credit' si prefieres según la lógica
+			];
+		}
+	
+		return $movimientos_transformados;
+	}
+	
+	private function bancoProvincial($data)
+	{
+		// Puedes hacer un print_r si estás debuggeando:
+		$movimientos = $data['account_statement']['transactions'];
+		$movimientos_transformados = [];
+
+		foreach ($movimientos as $key => $item) {
+			// Convertir fecha de DD/MM/YYYY a YYYY-MM-DD
+			$fecha = DateTime::createFromFormat('d-m-Y', $item['operation_date'])->format('Y-m-d');
+			// Limpiar y convertir a número float para poder comparar correctamente
+			$debit = $this->parseEuropeanNumber($item['charges']);
+			$credit = $this->parseEuropeanNumber($item['credits']);
+			
+			// Determinar el monto correcto
+			if (empty($credit)) {
+				$monto = '-'.$debit;
+			} else {
+				$monto = $credit;
+			}
+
+			$movimientos_transformados[] = [
+				'fecha'      => $fecha,
+				'referencia' => $item['reference'],
+				'monto'      => $monto, // O 'credit' si prefieres según la lógica
+			];
+		}
+
+		return $movimientos_transformados;
+	}
 	/*private function parseEuropeanNumber($number) {
 
 		// Elimina el separador de miles
@@ -662,7 +743,8 @@ class Transaccion extends Controllers{
 		return floatval($number);
 	}*/
 
-	private function parseEuropeanNumber($number) {
+	private function parseEuropeanNumber($number) 
+	{
 		$number = trim((string) $number);
 
 		// Si contiene ambos símbolos: coma y punto
@@ -1204,5 +1286,6 @@ class Transaccion extends Controllers{
 			die();
 		}
 	}
+
 }
 ?>
