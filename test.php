@@ -12,11 +12,11 @@
 
 // The authentication key (API Key).
 // Get your own by registering at https://app.pdf.co
-$apiKey = "adnlean.com@gmail.com_SfBGojnr2FuvXSWOHxuu8MzeyudrwopxbuyaxhvbWpUSXreGnto0giAxCbuucJGV";
+$apiKey = "quintanaanthony7@gmail.com_iY7N3p4sBXK9G4t0Y0Pwjv8UW4w0PQvZ8E87Pd0d8mD6lAuTru3iCS6hQmCtMFLp";
 
 // Direct URL of Source PDF file
 // You can also upload your own file into PDF.co and use it as url. Check "Upload File" samples for code snippets: https://github.com/bytescout/pdf-co-api-samples/tree/master/File%20Upload/
-$sourceFileUrl = "https://iabanking.apps-adn.com/venezuela.pdf";
+$sourceFileUrl = "https://iabanking.apps-adn.com/bancoadn-mercantil-tipo1.pdf";
 
 // Prepare URL for `AI Invoice Parser` API call
 $url = "https://api.pdf.co/v1/ai-invoice-parser";
