@@ -16,7 +16,6 @@ class Transaccion extends Controllers{
 		}
 	}
 
-
 	//FUNCIONES PARA SUERVISOR
 
 	public function transaccion()
@@ -58,7 +57,7 @@ class Transaccion extends Controllers{
 	}
 	
 	public function setTransaction()
-	{
+	{	
 		if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 			$arrResponse = array('status' => false, 'msg' => 'Método no permitido.' );
 		}
@@ -92,8 +91,9 @@ class Transaccion extends Controllers{
 				if (move_uploaded_file($tmpName, $uploadPath)) {
 					// URL pública si necesitas que PDF.co lo acceda por internet
 					// Asegúrate de tener un alias de tu carpeta "uploads" accesible desde el navegador
-					$fileUrl = "https://iabanking.apps-adn.com/" . $fileName;
-	
+					//$fileUrl = "https://iabanking.apps-adn.com/" . $fileName;
+					$fileUrl = base_url() .'/'. $fileName;
+
 					// Aquí sigue tu lógica PDF.co:
 					//$apiKey = "adnlean.com@gmail.com_SfBGojnr2FuvXSWOHxuu8MzeyudrwopxbuyaxhvbWpUSXreGnto0giAxCbuucJGV";
 					$apiKey = "quintanaanthony7@gmail.com_iY7N3p4sBXK9G4t0Y0Pwjv8UW4w0PQvZ8E87Pd0d8mD6lAuTru3iCS6hQmCtMFLp";
@@ -207,7 +207,7 @@ class Transaccion extends Controllers{
 				$movimientosFormat = null;
 				switch ($bancoPrefijo) {
 					case 'MRC': $movimientosFormat = $this->procesarTxtMercantil($uploadPath); break;
-					//case 'SFT': $movimientosFormat = $this->procesarTxtSofitasa($uploadPath); break;
+					case 'SFT': $movimientosFormat = $this->procesarTxtSofitasa($uploadPath); break;
 					//case 'BCM': $movimientosFormat = $this->procesarExcelBancamiga($uploadPath); break;
 					//case 'VNZ': $movimientosFormat = $this->procesarExcelVenezuela($uploadPath); break;
 					//case 'BCT': $movimientosFormat = $this->bancoBicentenario($data); break;
@@ -469,7 +469,6 @@ class Transaccion extends Controllers{
 			'msg' => 'Formato(PDF) - Banco Banesco, desabilitado temporalmente.'
 		]);
 		die();
-
 		// Puedes hacer un print_r si estás debuggeando:
 		$movimientos = $data['detalle_de_movimientos'];
 		$movimientos_transformados = [];
@@ -743,8 +742,7 @@ class Transaccion extends Controllers{
 		return floatval($number);
 	}*/
 
-	private function parseEuropeanNumber($number) 
-	{
+	private function parseEuropeanNumber($number) {
 		$number = trim((string) $number);
 
 		// Si contiene ambos símbolos: coma y punto
@@ -1287,5 +1285,64 @@ class Transaccion extends Controllers{
 		}
 	}
 
+	private function procesarTxtSofitasa($filePath)
+	{
+		try {	
+	
+			$movimientos_transformados = [];
+
+			$lineas = file($filePath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+
+			foreach ($lineas as $linea) {
+				// Obtener fecha desde los primeros 8 caracteres (ddmmaaaa)
+				$fechaTexto = substr($linea, 0, 9); // Ejemplo: 13052025
+				$fechaSinPrimerDigito = substr($fechaTexto, 1); // "19052025"
+
+				$dia = substr($fechaSinPrimerDigito, 0, 2);
+				$mes = substr($fechaSinPrimerDigito, 2, 2);
+				$anio = substr($fechaSinPrimerDigito, 4, 4);
+
+				$fecha = "$anio-$mes-$dia"; // "19-05-2025"
+
+				$referencia = substr($linea, 10, 14);
+				// Obtener el monto del movimiento
+				// Buscamos el penúltimo grupo numérico con coma
+				preg_match_all('/-?\d{1,},\d{2}/', $linea, $montoMatch);
+				$montos = $montoMatch[0];
+
+				if (count($montos) >= 3) {
+					$montoDebitoBruto = $montos[count($montos) - 3];
+       				 $montoCreditoBruto = $montos[count($montos) - 2];
+
+					// Convertir ambos montos a número real
+        			$montoDebito = $this->parseEuropeanNumber($montoDebitoBruto);
+        			$montoCredito = $this->parseEuropeanNumber($montoCreditoBruto);
+
+					if ($montoCredito == 0 && $montoDebito != 0) {
+						$monto = $montoDebito;
+					} else {
+						$monto = $montoCredito;
+					}
+
+					$movimientos_transformados[] = [
+						'fecha'       => $fecha,
+						'referencia'  => $referencia,
+						'monto'       => $monto,
+					];
+				}
+			}
+
+			return $movimientos_transformados;
+
+		} catch (Exception $e) {
+			if (file_exists($filePath)) unlink($filePath);
+			echo json_encode([
+				'success' => false,
+				'msg' => 'Archivo TXT esta dañado.'
+			]);
+			die();
+		}
+
+	}
 }
 ?>
